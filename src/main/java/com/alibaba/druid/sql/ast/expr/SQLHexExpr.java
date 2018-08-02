@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,9 @@ package com.alibaba.druid.sql.ast.expr;
 import com.alibaba.druid.sql.ast.SQLExprImpl;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 import com.alibaba.druid.util.HexBin;
+
+import java.util.Collections;
+import java.util.List;
 
 public class SQLHexExpr extends SQLExprImpl implements SQLLiteralExpr, SQLValuableExpr {
 
@@ -87,5 +90,10 @@ public class SQLHexExpr extends SQLExprImpl implements SQLLiteralExpr, SQLValuab
 
     public byte[] getValue() {
         return toBytes();
+    }
+
+    @Override
+    public List getChildren() {
+        return Collections.emptyList();
     }
 }

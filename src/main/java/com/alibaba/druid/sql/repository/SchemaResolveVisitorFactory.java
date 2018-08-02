@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,12 @@ import com.alibaba.druid.sql.SQLUtils;
 import com.alibaba.druid.sql.ast.*;
 import com.alibaba.druid.sql.ast.expr.*;
 import com.alibaba.druid.sql.ast.statement.*;
+import com.alibaba.druid.sql.dialect.db2.ast.DB2Object;
 import com.alibaba.druid.sql.dialect.db2.ast.stmt.DB2SelectQueryBlock;
 import com.alibaba.druid.sql.dialect.db2.visitor.DB2ASTVisitorAdapter;
+import com.alibaba.druid.sql.dialect.hive.ast.HiveInsert;
+import com.alibaba.druid.sql.dialect.hive.ast.HiveMultiInsertStatement;
+import com.alibaba.druid.sql.dialect.hive.visitor.HiveASTVisitorAdapter;
 import com.alibaba.druid.sql.dialect.mysql.ast.MysqlForeignKey;
 import com.alibaba.druid.sql.dialect.mysql.ast.clause.MySqlCursorDeclareStatement;
 import com.alibaba.druid.sql.dialect.mysql.ast.clause.MySqlDeclareStatement;
@@ -230,8 +234,6 @@ class SchemaResolveVisitorFactory {
         }
     }
 
-
-
     static class DB2ResolveVisitor extends DB2ASTVisitorAdapter implements SchemaResolveVisitor {
         private SchemaRepository repository;
         private int options;
@@ -283,6 +285,11 @@ class SchemaResolveVisitorFactory {
         }
 
         public boolean visit(SQLIdentifierExpr x) {
+            long hash64 = x.hashCode64();
+            if (hash64 == DB2Object.Constants.CURRENT_DATE || hash64 == DB2Object.Constants.CURRENT_TIME) {
+                return false;
+            }
+
             resolve(this, x);
             return true;
         }
@@ -503,6 +510,10 @@ class SchemaResolveVisitorFactory {
         }
 
         public boolean visit(SQLIdentifierExpr x) {
+            if (x.nameHashCode64() == FnvHash.Constants.ROWNUM) {
+                return false;
+            }
+
             resolve(this, x);
             return true;
         }
@@ -630,6 +641,11 @@ class SchemaResolveVisitorFactory {
             return false;
         }
 
+        public boolean visit(SQLFetchStatement x) {
+            resolve(this, x);
+            return false;
+        }
+
         @Override
         public boolean isEnabled(Option option) {
             return (options & option.mask) != 0;
@@ -751,7 +767,190 @@ class SchemaResolveVisitorFactory {
             return false;
         }
 
-        public boolean visit(OdpsInsert x) {
+        public boolean visit(HiveInsert x) {
+            Context ctx = createContext(x);
+
+            SQLExprTableSource tableSource = x.getTableSource();
+            if (tableSource != null) {
+                ctx.setTableSource(x.getTableSource());
+                visit(tableSource);
+            }
+
+            for (SQLAssignItem item : x.getPartitions()) {
+                item.accept(this);
+            }
+
+            SQLSelect select = x.getQuery();
+            if (select != null) {
+                visit(select);
+            }
+
+            popContext();
+            return false;
+        }
+
+        public boolean visit(SQLInsertStatement x) {
+            resolve(this, x);
+            return false;
+        }
+
+        public boolean visit(SQLAlterTableStatement x) {
+            resolve(this, x);
+            return false;
+        }
+
+        public boolean visit(SQLMergeStatement x) {
+            resolve(this, x);
+            return false;
+        }
+
+        public boolean visit(SQLCreateProcedureStatement x) {
+            resolve(this, x);
+            return false;
+        }
+
+        public boolean visit(SQLBlockStatement x) {
+            resolve(this, x);
+            return false;
+        }
+
+        public boolean visit(SQLParameter x) {
+            resolve(this, x);
+            return false;
+        }
+
+        public boolean visit(SQLDeclareItem x) {
+            resolve(this, x);
+            return false;
+        }
+
+        public boolean visit(SQLOver x) {
+            resolve(this, x);
+            return false;
+        }
+
+        @Override
+        public boolean isEnabled(Option option) {
+            return (options & option.mask) != 0;
+        }
+
+        @Override
+        public Context getContext() {
+            return context;
+        }
+
+        public Context createContext(SQLObject object) {
+            return this.context = new Context(object, context);
+        }
+
+        @Override
+        public void popContext() {
+            if (context != null) {
+                context = context.parent;
+            }
+        }
+
+        public SchemaRepository getRepository() {
+            return repository;
+        }
+    }
+
+    static class HiveResolveVisitor extends HiveASTVisitorAdapter implements SchemaResolveVisitor {
+        private int options;
+        private SchemaRepository repository;
+        private Context context;
+
+        public HiveResolveVisitor(SchemaRepository repository, int options) {
+            this.repository = repository;
+            this.options = options;
+        }
+
+        public boolean visit(SQLForeignKeyImpl x) {
+            resolve(this, x);
+            return false;
+        }
+
+        public boolean visit(SQLSelectStatement x) {
+            resolve(this, x.getSelect());
+            return false;
+        }
+
+        public boolean visit(SQLExprTableSource x) {
+            resolve(this, x);
+            return false;
+        }
+
+        public boolean visit(SQLSelectQueryBlock x) {
+            resolve(this, x);
+            return false;
+        }
+
+        public boolean visit(OdpsSelectQueryBlock x) {
+            resolve(this, x);
+            return false;
+        }
+
+        public boolean visit(SQLSelectItem x) {
+            SQLExpr expr = x.getExpr();
+            if (expr instanceof SQLIdentifierExpr) {
+                resolve(this, (SQLIdentifierExpr) expr);
+                return false;
+            }
+
+            if (expr instanceof SQLPropertyExpr) {
+                resolve(this, (SQLPropertyExpr) expr);
+                return false;
+            }
+
+            return true;
+        }
+
+        public boolean visit(SQLIdentifierExpr x) {
+            resolve(this, x);
+            return true;
+        }
+
+        public boolean visit(SQLPropertyExpr x) {
+            resolve(this, x);
+            return false;
+        }
+
+        public boolean visit(SQLAllColumnExpr x) {
+            resolve(this, x);
+            return false;
+        }
+
+        public boolean visit(SQLCreateTableStatement x) {
+            resolve(this, x);
+            return false;
+        }
+
+        public boolean visit(OdpsCreateTableStatement x) {
+            resolve(this, x);
+            return false;
+        }
+
+        public boolean visit(SQLUpdateStatement x) {
+            resolve(this, x);
+            return false;
+        }
+
+        public boolean visit(SQLDeleteStatement x) {
+            resolve(this, x);
+            return false;
+        }
+
+        public boolean visit(SQLSelect x) {
+            resolve(this, x);
+            return false;
+        }
+
+        public boolean visit(SQLWithSubqueryClause x) {
+            resolve(this, x);
+            return false;
+        }
+
+        public boolean visit(HiveInsert x) {
             Context ctx = createContext(x);
 
             SQLExprTableSource tableSource = x.getTableSource();
@@ -1495,6 +1694,17 @@ class SchemaResolveVisitorFactory {
         }
 
         if (table != null) {
+            if (from != null && table instanceof SQLExprTableSource) {
+                SQLExpr tableExpr = ((SQLExprTableSource) table).getExpr();
+                if (tableExpr instanceof SQLPropertyExpr
+                        && ((SQLPropertyExpr) tableExpr).getName().equals("*")) {
+                    String alias = ((SQLPropertyExpr) tableExpr).getOwnernName();
+                    SQLTableSource refTableSource = from.findTableSource(alias);
+                    if (refTableSource != null) {
+                        ((SQLPropertyExpr) tableExpr).setResolvedTableSource(refTableSource);
+                    }
+                }
+            }
             table.accept(visitor);
             ctx.setTableSource(table);
         }
@@ -1600,11 +1810,11 @@ class SchemaResolveVisitorFactory {
             }
         } else if (ctxTable instanceof SQLSubqueryTableSource) {
             tableSource = ctxTable.findTableSourceWithColumn(hash);
-        } else if (ctxTable instanceof OdpsLateralViewTableSource) {
+        } else if (ctxTable instanceof SQLLateralViewTableSource) {
             tableSource = ctxTable.findTableSourceWithColumn(hash);
 
             if (tableSource == null) {
-                tableSource = ((OdpsLateralViewTableSource) ctxTable).getTableSource();
+                tableSource = ((SQLLateralViewTableSource) ctxTable).getTableSource();
             }
         } else {
             for (SchemaResolveVisitor.Context parentCtx = ctx;
@@ -1675,7 +1885,7 @@ class SchemaResolveVisitorFactory {
 
             if (ctxTable instanceof SQLJoinTableSource) {
                 String alias = tableSource.computeAlias();
-                if (alias == null) {
+                if (alias == null || tableSource instanceof SQLWithSubqueryClause.Entry) {
                     return;
                 }
 
@@ -1683,6 +1893,36 @@ class SchemaResolveVisitorFactory {
                 propertyExpr.setResolvedColumn(x.getResolvedColumn());
                 propertyExpr.setResolvedTableSource(x.getResolvedTableSource());
                 SQLUtils.replaceInParent(x, propertyExpr);
+            }
+        }
+
+        if (x.getResolvedColumn() == null
+                && x.getResolvedTableSource() == null) {
+            for (SchemaResolveVisitor.Context parentCtx = ctx;
+                 parentCtx != null;
+                 parentCtx = parentCtx.parent)
+            {
+                SQLDeclareItem declareItem = parentCtx.findDeclare(hash);
+                if (declareItem != null) {
+                    x.setResolvedDeclareItem(declareItem);
+                    return;
+                }
+
+                if (parentCtx.object instanceof SQLBlockStatement) {
+                    SQLBlockStatement block = (SQLBlockStatement) parentCtx.object;
+                    SQLParameter parameter = block.findParameter(hash);
+                    if (parameter != null) {
+                        x.setResolvedParameter(parameter);
+                        return;
+                    }
+                } else if (parentCtx.object instanceof SQLCreateProcedureStatement) {
+                    SQLCreateProcedureStatement createProc = (SQLCreateProcedureStatement) parentCtx.object;
+                    SQLParameter parameter = createProc.findParameter(hash);
+                    if (parameter != null) {
+                        x.setResolvedParameter(parameter);
+                        return;
+                    }
+                }
             }
         }
     }
@@ -1828,6 +2068,13 @@ class SchemaResolveVisitorFactory {
             ctx.setTableSource(from);
 
             from.accept(visitor);
+        } else if (x.getParent() != null && x.getParent().getParent() instanceof HiveInsert
+                && x.getParent().getParent().getParent() instanceof HiveMultiInsertStatement){
+            HiveMultiInsertStatement insert = (HiveMultiInsertStatement) x.getParent().getParent().getParent();
+            if (insert.getFrom() instanceof SQLExprTableSource) {
+                from = insert.getFrom();
+                ctx.setTableSource(from);
+            }
         }
 
         List<SQLSelectItem> selectList = x.getSelectList();
@@ -1838,9 +2085,7 @@ class SchemaResolveVisitorFactory {
             SQLExpr expr = selectItem.getExpr();
             if (expr instanceof SQLAllColumnExpr) {
                 SQLAllColumnExpr allColumnExpr = (SQLAllColumnExpr) expr;
-                if (from instanceof SQLExprTableSource) {
-                    allColumnExpr.setResolvedTableSource(from);
-                }
+                allColumnExpr.setResolvedTableSource(from);
 
                 visitor.visit(allColumnExpr);
 
@@ -1990,18 +2235,36 @@ class SchemaResolveVisitorFactory {
                 return;
             }
 
+            String alias = from.getAlias();
+
             SchemaObject table = repository.findTable((SQLExprTableSource) from);
             if (table != null) {
                 SQLCreateTableStatement createTableStmt = (SQLCreateTableStatement) table.getStatement();
                 for (SQLTableElement e : createTableStmt.getTableElementList()) {
                     if (e instanceof SQLColumnDefinition) {
                         SQLColumnDefinition column = (SQLColumnDefinition) e;
-                        SQLIdentifierExpr name = (SQLIdentifierExpr) column.getName().clone();
-                        name.setResolvedColumn(column);
-                        columns.add(new SQLSelectItem(name));
+
+                        if (alias != null) {
+                            SQLPropertyExpr name = new SQLPropertyExpr(alias, column.getName().getSimpleName());
+                            name.setResolvedColumn(column);
+                            columns.add(new SQLSelectItem(name));
+                        } else {
+                            SQLIdentifierExpr name = (SQLIdentifierExpr) column.getName().clone();
+                            name.setResolvedColumn(column);
+                            columns.add(new SQLSelectItem(name));
+                        }
+
+
                     }
                 }
             }
+            return;
+        }
+
+        if (from instanceof SQLJoinTableSource) {
+            SQLJoinTableSource join = (SQLJoinTableSource) from;
+            extractColumns(visitor, join.getLeft(), columns);
+            extractColumns(visitor, join.getRight(), columns);
         }
     }
 
@@ -2462,6 +2725,13 @@ class SchemaResolveVisitorFactory {
         }
 
         visitor.popContext();
+    }
+
+    static void resolve(SchemaResolveVisitor visitor, SQLFetchStatement x) {
+        resolveExpr(visitor, x.getCursorName());
+        for (SQLExpr expr : x.getInto()) {
+            resolveExpr(visitor, expr);
+        }
     }
 
     static void resolve(SchemaResolveVisitor visitor, SQLForeignKeyConstraint x) {

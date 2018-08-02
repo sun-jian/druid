@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -172,7 +172,7 @@ public class OracleCreateProcedureTest4 extends OracleTest {
         List<SQLStatement> statementList = parser.parseStatementList();
         print(statementList);
 
-        Assert.assertEquals(1, statementList.size());
+        assertEquals(1, statementList.size());
 
         OracleSchemaStatVisitor visitor = new OracleSchemaStatVisitor();
         for (SQLStatement statement : statementList) {
@@ -185,15 +185,15 @@ public class OracleCreateProcedureTest4 extends OracleTest {
         System.out.println("relationships : " + visitor.getRelationships());
         System.out.println("orderBy : " + visitor.getOrderByColumns());
 
-        Assert.assertEquals(5, visitor.getTables().size());
+        assertEquals(5, visitor.getTables().size());
 
-        Assert.assertTrue(visitor.getTables().containsKey(new TableStat.Name("fact_brand_provider")));
+        assertTrue(visitor.getTables().containsKey(new TableStat.Name("fact_brand_provider")));
 
-        Assert.assertEquals(32, visitor.getColumns().size());
-        Assert.assertEquals(7, visitor.getConditions().size());
-        Assert.assertEquals(5, visitor.getRelationships().size());
+        assertEquals(23, visitor.getColumns().size());
+        assertEquals(6, visitor.getConditions().size());
+        assertEquals(4, visitor.getRelationships().size());
 
-         Assert.assertTrue(visitor.containsColumn("fact_brand_provider", "gyscode"));
-         Assert.assertTrue(visitor.containsColumn("fact_brand_provider", "gysname"));
+        assertTrue(visitor.containsColumn("fact_brand_provider", "gyscode"));
+        assertTrue(visitor.containsColumn("fact_brand_provider", "gysname"));
     }
 }

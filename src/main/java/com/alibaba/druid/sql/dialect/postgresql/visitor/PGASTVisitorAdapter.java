@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import com.alibaba.druid.sql.dialect.postgresql.ast.expr.PGCidrExpr;
 import com.alibaba.druid.sql.dialect.postgresql.ast.expr.PGCircleExpr;
 import com.alibaba.druid.sql.dialect.postgresql.ast.expr.PGExtractExpr;
 import com.alibaba.druid.sql.dialect.postgresql.ast.expr.PGInetExpr;
-import com.alibaba.druid.sql.dialect.postgresql.ast.expr.PGIntervalExpr;
 import com.alibaba.druid.sql.dialect.postgresql.ast.expr.PGLineSegmentsExpr;
 import com.alibaba.druid.sql.dialect.postgresql.ast.expr.PGMacAddrExpr;
 import com.alibaba.druid.sql.dialect.postgresql.ast.expr.PGPointExpr;
@@ -239,16 +238,6 @@ public class PGASTVisitorAdapter extends SQLASTVisitorAdapter implements PGASTVi
     }
 
     @Override
-    public void endVisit(PGIntervalExpr x) {
-
-    }
-
-    @Override
-    public boolean visit(PGIntervalExpr x) {
-        return true;
-    }
-    
-    @Override
     public void endVisit(PGShowStatement x) {
         
     }
@@ -265,6 +254,16 @@ public class PGASTVisitorAdapter extends SQLASTVisitorAdapter implements PGASTVi
 
     @Override
     public boolean visit(PGStartTransactionStatement x) {
+        return true;
+    }
+
+    @Override
+    public void endVisit(PGConnectToStatement x) {
+
+    }
+
+    @Override
+    public boolean visit(PGConnectToStatement x) {
         return true;
     }
 

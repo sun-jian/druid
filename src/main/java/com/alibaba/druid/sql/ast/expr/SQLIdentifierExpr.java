@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,9 @@ import com.alibaba.druid.sql.ast.*;
 import com.alibaba.druid.sql.ast.statement.*;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 import com.alibaba.druid.util.FnvHash;
+
+import java.util.Collections;
+import java.util.List;
 
 public final class SQLIdentifierExpr extends SQLExprImpl implements SQLName {
     protected String    name;
@@ -211,5 +214,18 @@ public final class SQLIdentifierExpr extends SQLExprImpl implements SQLName {
 
     public boolean nameEquals(String name) {
         return SQLUtils.nameEquals(this.name, name);
+    }
+
+    @Override
+    public List<SQLObject> getChildren() {
+        return Collections.emptyList();
+    }
+
+    public static boolean matchIgnoreCase(SQLExpr expr, String name) {
+        if (!(expr instanceof SQLIdentifierExpr)) {
+            return false;
+        }
+        SQLIdentifierExpr ident = (SQLIdentifierExpr) expr;
+        return ident.getName().equalsIgnoreCase(name);
     }
 }
